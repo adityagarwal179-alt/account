@@ -1,4 +1,4 @@
-window.fb = {
+var firebaseconfig = {
   apiKey: "AIzaSyC98YgPTU1vOQZNgAInkiyHMuLM1qrWGRg",
   authDomain: "account-c3590.firebaseapp.com",
   projectId: "account-c3590",
