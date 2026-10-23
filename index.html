@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>My Khata</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--bg:#eef3f0;--c:#fff;--t:#14201b;--m:#5f6f67;--p:#0f6b4f;--p2:#dff1ea;--r:#c2352f;--r2:#fbe7e5;--a:#b7791f;--b:#d9e2dd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1512;--c:#17211c;--t:#e6efea;--m:#93a79c;--p:#3fcf9f;--p2:#133126;--r:#ff7b73;--r2:#3a1f1d;--a:#e8b04a;--b:#26352d}}
+:root[data-theme=dark]{--bg:#0e1512;--c:#17211c;--t:#e6efea;--m:#93a79c;--p:#3fcf9f;--p2:#133126;--r:#ff7b73;--r2:#3a1f1d;--a:#e8b04a;--b:#26352d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--c);z-index:10}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--c);border-bottom:1px solid var(--b);padding:10px 14px}
+.hr{display:flex;justify-content:space-between;align-items:center;gap:8px}.hr h1{font-size:18px;margin:0}
+nav{display:flex;gap:4px;overflow-x:auto;margin-top:8px}nav button{white-space:nowrap}
+main{max-width:860px;margin:0 auto;padding:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{border:1px solid var(--b);background:var(--c);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+button.on,button.pri{background:var(--p);color:#fff;border-color:var(--p)}button.dng{color:var(--r);border-color:var(--r)}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--b);border-radius:8px;background:var(--bg);margin:3px 0 10px}
+label{font-size:13px;color:var(--m)}
+.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:10px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.k{font-size:12px;color:var(--m)}.big{font-size:22px;font-weight:700}
+.due{color:var(--r)}.adv{color:var(--p)}.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.wrap{display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--p2);color:var(--p)}
+.chip.w{background:var(--r2);color:var(--r)}.pl{cursor:pointer}.bars{display:flex;gap:8px;align-items:flex-end;height:90px}
+.bars div{flex:1;text-align:center;font-size:11px;color:var(--m)}.bars i{display:inline-block;width:42%;vertical-align:bottom}
+.mo{position:fixed;inset:0;background:#0007;z-index:20;display:flex;align-items:flex-end;justify-content:center}.mo[hidden]{display:none}
+.md{background:var(--c);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--t);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:30}
+#toast[hidden]{display:none}a.btn{display:inline-block;text-decoration:none;border:1px solid var(--b);border-radius:8px;padding:7px 12px;color:inherit}
+#pr{display:none}@media print{body>*:not(#pr){display:none!important}#pr{display:block;color:#000;background:#fff;padding:12px}#pr td,#pr th{border-bottom:1px solid #ccc;padding:4px 8px;text-align:left}}
+</style></head><body>
+<header><div class="hr"><h1 id="sn">My Khata</h1><button onclick="load()">Refresh</button></div></header>
+<main id="app"></main><div class="mo" id="mo" hidden><div class="md" id="mb"></div></div><div id="toast" hidden></div>
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s),CF=window.FB||{},T=location.hash.slice(1).replace(/[^\w-]/g,''),SENT='kp_sent_'+T;let D=null,tt;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const sent=()=>{try{return JSON.parse(localStorage.getItem(SENT))||[]}catch(e){return[]}},url=()=>`https://firestore.googleapis.com/v1/projects/${CF.projectId}/databases/(default)/documents`;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+function openM(h){$('#mb').innerHTML=h;$('#mo').hidden=false}function closeM(){$('#mo').hidden=true}
+$('#mo').addEventListener('click',e=>{if(e.target.id==='mo')closeM()});
+const note=m=>`<div class="card k">${m}</div>`;
+async function load(){const m=$('#app');if(!CF.apiKey||/^PASTE/.test(CF.apiKey)||!CF.projectId){m.innerHTML=note('This page is not set up yet.');return}
+ if(!T){m.innerHTML=note('Please open the private link your shopkeeper sent you.');return}m.innerHTML=note('Loading…');
+ try{const r=await fetch(`${url()}/pub/${T}?key=${CF.apiKey}`);if(r.status===404||r.status===403){m.innerHTML=note('This link is not valid or has been replaced. Please ask the shop for a new link.');return}
+  if(!r.ok)throw 0;D=JSON.parse((await r.json()).fields.d.stringValue);view()}
+ catch(e){m.innerHTML=note('Could not load. Check your internet and tap Refresh.')}}
+function drawQr(u){const el=$('#pq');if(!el)return;if(typeof QRCode==='undefined'){el.innerHTML='';return}try{new QRCode(el,{text:u,width:170,height:170,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
+function view(){$('#sn').textContent=D.shop.name;const b=D.bal,sd=sent(),ds=D.disputes||[],L=[...D.entries].sort((x,y)=>y.date.localeCompare(x.date)),
+ lb=e=>e.kind==='adv'?'Advance deposited':e.kind==='refund'?'Advance refunded to you':e.type==='give'?'Taken on credit':'Paid',
+ uu=D.shop.upi&&b>0?`upi://pay?pa=${encodeURIComponent(D.shop.upi)}&pn=${encodeURIComponent(D.shop.name)}&cu=INR&am=${b}&tn=${encodeURIComponent('Khata '+D.name)}`:'';
+ $('#app').innerHTML=`<div class="card"><div class="k">Hello ${esc(D.name)}</div><div class="k">${b>0?'You owe':b<0?'Your advance credit with the shop':'All settled'}</div><div class="big ${b>0?'due':'adv'}">${fmt(Math.abs(b))}</div>${b<0?'<p class="k">It will be adjusted against your next purchases.</p>':''}${uu?`<p class="k">Scan with any UPI app, or tap the button</p><div id="pq"></div><p><a class="btn" href="${esc(uu)}">Pay with UPI app</a></p>`:''}</div>
+ <h3>Your entries</h3>${L.map(e=>{const mine=ds.filter(x=>x.eid===e.id),d=mine[mine.length-1],pend=(d&&d.status==='pending')||sd.includes(e.id+'@'+mine.length);
+  return `<div class="card row"><div><b class="${e.type==='give'?'due':'adv'}">${lb(e)} ${fmt(e.amt)}</b>${e.edited?' <span class="chip">Corrected</span>':''}<div class="k">${esc(e.date)} ${esc(e.note)}</div></div>${pend?'<span class="chip w">Under review</span>':`<button onclick="reportM('${esc(e.id)}')">Report wrong</button>`}</div>`}).join('')||'<p class="k">No entries yet.</p>'}
+ <h3>Your reports</h3>${ds.map(x=>`<div class="card"><span class="chip ${x.status==='pending'?'w':''}">${esc(x.status)}</span> ${esc(x.reason)}${x.reply?'<div class="k">Shop reply: '+esc(x.reply)+'</div>':''}</div>`).join('')||'<p class="k">No reports.</p>'}<p class="k">Last updated: ${esc(new Date(D.upd).toLocaleString())}</p>`;drawQr(uu)}
+function reportM(eid){const e=D.entries.find(x=>x.id===eid);if(!e)return;openM(`<h3>Report wrong entry</h3><p>${e.type==='give'?'Taken':'Paid'} ${fmt(e.amt)} on ${esc(e.date)}</p><label>What is wrong?</label><select id="d1">${['Wrong amount','I did not take this','Already paid','Duplicate entry','Other'].map(x=>`<option>${x}</option>`).join('')}</select><label>Correct amount (leave blank to ask for removal)</label><input id="d2" type="number" min="0" step="0.01"><label>Message to shopkeeper</label><textarea id="d3" maxlength="400"></textarea><div class="wrap"><button class="pri" id="sb" onclick="sendR('${esc(eid)}')">Send report</button><button onclick="closeM()">Cancel</button></div>`)}
+async function sendR(eid){const c=$('#d2').value;if(c!==''&&!(+c>=0))return toast('Enter a valid amount');const b=$('#sb');b.disabled=true;const f=(k,v)=>[k,{stringValue:String(v)}];
+ try{const r=await fetch(`${url()}/reports?key=${CF.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:Object.fromEntries([f('t',T),f('eid',eid),f('reason',$('#d1').value),f('claim',c===''?'':Math.round(+c*100)/100),f('note',$('#d3').value.trim().slice(0,400)),f('date',new Date().toISOString())])})});if(!r.ok)throw 0;
+  const s=sent();s.push(eid+'@'+(D.disputes||[]).filter(x=>x.eid===eid).length);try{localStorage.setItem(SENT,JSON.stringify(s))}catch(e){}closeM();view();toast('Sent to the shopkeeper')}
+ catch(e){b.disabled=false;toast('Could not send. Please try again.')}}
+load();
+</script></body></html>
