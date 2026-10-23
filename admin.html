@@ -208,7 +208,7 @@ async function pullReports(){const j=await fsReq('GET',FS()+'/reports?pageSize=2
  if(n){render()}return n}
 function saveC(){const em=$('#c1').value.trim(),pw=$('#c2').value,st=$('#c3').value.trim();if(!em||!pw)return toast('Enter admin email and password');if(st&&!/^https:\/\/.+/.test(st))return toast('Site URL must start with https://');
  cl().email=em;cl().site=st&&!st.endsWith('/')?st+'/':st;sessionStorage.setItem('kp_pw',pw);cTok=null;pushed={};save0();syncAll(true)}
-const linkMsg=p=>{p.token=p.token||tk();return `Namaste ${p.name} ji,\n${S.shop.name} mein aapka khata yahan dekh sakte hain / See your khata here:\n${site()}index.html#${p.token}\n(Yeh link sirf aapke liye hai, kisi ko share na karein.)`},
+const linkMsg=p=>{p.token=p.token||tk();return `Namaste ${p.name} ji 🙏\nApna hisaab yahan dekhein:\n${site()}index.html#${p.token}\n\n- ${S.shop.name}`},
  siteOk=()=>/^https:\/\//.test(site());
 function markSent(id){const p=P(id);if(p){p.linkSent=Date.now();save0()}}
 function linksM(){const a=live().filter(p=>dg(p.phone).length>=10);a.forEach(p=>{p.token=p.token||tk()});save0();
