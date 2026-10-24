@@ -43,7 +43,7 @@ let tab='home',rp='30',q='',flt='all',srt='bal',portal=null,unlocked=false,tt;
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Storage is full or blocked')}if(typeof sched==='function')sched()};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{minimumFractionDigits:Number.isInteger(Math.round(Math.abs(+n||0)*100)/100)?0:2,maximumFractionDigits:2});
 const today=()=>new Date().toISOString().slice(0,10);
 const log=m=>{S.log.unshift({t:new Date().toLocaleString(),m});S.log=S.log.slice(0,100)};
 const ents=id=>S.entries.filter(e=>e.pid===id&&!e.del);
@@ -67,7 +67,8 @@ te:["నమస్కారం {n}, {s} లో మీ ₹{a} బాకీ ఉం�
 const LN={en:'English',hi:'हिन्दी',hg:'Hinglish',pa:'ਪੰਜਾਬੀ',gu:'ગુજરાતી',mr:'मराठी',bn:'বাংলা',ta:'தமிழ்',te:'తెలుగు'},TN=['Friendly','Polite','Firm'];
 const msg=(p,l,t)=>{let s=T[l][t].replace(/\{n\}/g,p.name).replace(/\{a\}/g,Math.abs(bal(p.id)).toLocaleString('en-IN')).replace(/\{s\}/g,S.shop.name);if(S.shop.upi)s+='\nUPI: '+S.shop.upi;const cl2=cLink(p);if(cl2)s+='\n\nPoora ya thoda payment yahan se kar sakte hain / Pay full or part here:\n'+cl2;return s};
 const sel=(o,v)=>Object.entries(o).map(([k,n])=>`<option value="${k}"${String(k)===String(v)?' selected':''}>${esc(n)}</option>`).join('');
-const upi=(amt,note)=>`upi://pay?pa=${encodeURIComponent(S.shop.upi)}&pn=${encodeURIComponent(S.shop.name)}&cu=INR${amt?'&am='+amt:''}${note?'&tn='+encodeURIComponent(note):''}`;
+const upiAscii=(t,d,n)=>{t=String(t||'').normalize('NFKD').replace(/[^A-Za-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,n);return t||d};
+const upi=(amt,note)=>`upi://pay?pa=${encodeURIComponent(String(S.shop.upi).trim())}&pn=${encodeURIComponent(upiAscii(S.shop.name,'Shop',25))}${amt?'&am='+(Number.isInteger(+amt)?+amt:(+amt).toFixed(2)):''}&cu=INR${note?'&tn='+encodeURIComponent(upiAscii(note,'Khata payment',30)):''}`;
 function qr(id,text,size){const el=document.getElementById(id);if(!el)return;el.innerHTML='';if(!S.shop.upi){el.innerHTML='<span class="k">Add your UPI ID in Settings to show the QR.</span>';return}
 if(typeof QRCode==='undefined'){el.innerHTML='<span class="k">QR library could not load. Check your connection.</span>';return}try{new QRCode(el,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){el.textContent='QR error'}}
 const TABS=[['home','Home'],['cust','Customers'],['pay','Payments'],['disp','Disputes'],['rep','Reports'],['qr','Shop QR'],['set','Settings']];
@@ -154,10 +155,32 @@ function stmtCanvas(id){const p=P(id),R=stmtRows(id),b=bal(id),rows=R.slice(-12)
  x.textAlign='center';if(qc){x.drawImage(qc,(W-200)/2,y,200,200);x.fillStyle='#14201b';x.font='700 15px '+F;x.fillText((b>0?'Scan to pay '+fmt(b):'Scan to pay')+' (any UPI app)',W/2,y+224);x.fillStyle='#5f6f67';x.font='13px '+F;x.fillText(S.shop.upi,W/2,y+244)}
  else{x.fillStyle='#5f6f67';x.font='13px '+F;x.fillText(S.shop.upi?'':'Add a UPI ID in Settings to show a payment QR here',W/2,y+10)}
  return c}
+function pdfFromCanvas(c,name){
+ const PW=595,PH=842,W=c.width,ph=Math.floor(W*PH/PW),n=Math.max(1,Math.ceil(c.height/ph)),enc=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&255;return a};
+ const ch=[],offs=[];let len=0;const push=u=>{ch.push(u);len+=u.length};
+ const obj=(i,head,st)=>{offs[i]=len;push(enc(i+' 0 obj\n'+head+(st?'\nstream\n':'\n')));if(st){push(st);push(enc('\nendstream'))}push(enc('\nendobj\n'))};
+ push(enc('%PDF-1.4\n'));
+ obj(1,'<</Type/Catalog/Pages 2 0 R>>');
+ obj(2,'<</Type/Pages/Kids['+Array.from({length:n},(_,k)=>(3+3*k)+' 0 R').join(' ')+']/Count '+n+'>>');
+ for(let k=0;k<n;k++){
+  const sh=Math.min(ph,c.height-k*ph),t=document.createElement('canvas');t.width=W;t.height=sh;const x=t.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,sh);x.drawImage(c,0,k*ph,W,sh,0,0,W,sh);
+  const bin=atob(t.toDataURL('image/jpeg',0.92).split(',')[1]),by=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)by[i]=bin.charCodeAt(i);
+  const H=sh*PW/W,cs='q '+PW+' 0 0 '+H.toFixed(2)+' 0 '+(PH-H).toFixed(2)+' cm /Im0 Do Q',p=3+3*k;
+  obj(p,'<</Type/Page/Parent 2 0 R/MediaBox[0 0 '+PW+' '+PH+']/Resources<</XObject<</Im0 '+(p+2)+' 0 R>>>>/Contents '+(p+1)+' 0 R>>');
+  obj(p+1,'<</Length '+cs.length+'>>',enc(cs));
+  obj(p+2,'<</Type/XObject/Subtype/Image/Width '+W+'/Height '+sh+'/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length '+by.length+'>>',by);
+ }
+ const N=3+3*n,xp=len;let xr='xref\n0 '+N+'\n0000000000 65535 f \n';for(let i=1;i<N;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+ push(enc(xr+'trailer\n<</Size '+N+'/Root 1 0 R>>\nstartxref\n'+xp+'\n%%EOF'));
+ const blob=new Blob(ch,{type:'application/pdf'}),f=new File([blob],name,{type:'application/pdf'});
+ const save=()=>{try{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000)}catch(e){try{window.open(URL.createObjectURL(blob),'_blank')}catch(e2){}}};
+ save();return blob}
+
+function stPdf(id){const p=P(id);try{pdfFromCanvas(stmtCanvas(id),'statement-'+(String(p.name).replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'')||'customer')+'.pdf');toast('PDF downloaded')}catch(e){toast('Could not create PDF')}}
 let stBlob=null,stName='statement.png';
 function stmtM(id){const p=P(id);let cv;try{cv=stmtCanvas(id)}catch(e){return toast('Could not build the statement')}
  stName='statement-'+(String(p.name).replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'')||'customer')+'.png';stBlob=null;const du=cv.toDataURL('image/png');try{const bin=atob(du.split(',')[1]),ar=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)ar[i]=bin.charCodeAt(i);stBlob=new Blob([ar],{type:'image/png'})}catch(e){}
- openM(`<h3>Statement – ${esc(p.name)}</h3><img id="stI" alt="Statement" src="${du}" style="width:100%;border:1px solid var(--b);border-radius:8px"><div class="wrap" style="margin-top:10px"><button class="pri" onclick="stShare('${id}')">WhatsApp – image with QR</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${wan(p.phone)}?text=${encodeURIComponent(stmtText(p))}">WhatsApp – text only</a><button onclick="stDown()">Download image</button><button onclick="stmt('${id}')">Print</button><button onclick="openP('${id}')">Back</button></div><p class="k">On a phone, choose WhatsApp in the share menu and pick the customer. On a computer the image is saved and WhatsApp opens – just attach it.</p>`)}
+ openM(`<h3>Statement – ${esc(p.name)}</h3><img id="stI" alt="Statement" src="${du}" style="width:100%;border:1px solid var(--b);border-radius:8px"><div class="wrap" style="margin-top:10px"><button class="pri" onclick="stShare('${id}')">WhatsApp – image with QR</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${wan(p.phone)}?text=${encodeURIComponent(stmtText(p))}">WhatsApp – text only</a><button onclick="stDown()">Download image</button><button class="pri" onclick="stPdf('${id}')">Download PDF</button><button onclick="stmt('${id}')">Print</button><button onclick="openP('${id}')">Back</button></div><p class="k">On a phone, choose WhatsApp in the share menu and pick the customer. On a computer the image is saved and WhatsApp opens – just attach it.</p>`)}
 function stDown(){if(!stBlob)return toast('Please wait a moment and try again');try{const a=document.createElement('a');a.href=URL.createObjectURL(stBlob);a.download=stName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}catch(e){toast('Download not available here')}}
 async function stShare(id){const p=P(id);if(!stBlob)return toast('Please wait a moment and try again');const tx=stmtText(p);
  try{const f=new File([stBlob],stName,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],text:tx});return}}catch(e){if(e&&e.name==='AbortError')return}
@@ -214,9 +237,9 @@ function impFile(el){const f=el.files&&el.files[0];if(!f)return;if(f.size>8e6)re
 let lastAct=Date.now();['click','keydown','touchstart','mousemove'].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
 function lockCheck(){const m=S.shop.lockMin??5;if(S.shop.pin&&unlocked&&m>0&&Date.now()-lastAct>m*6e4){unlocked=false;closeM();render()}}
 setInterval(lockCheck,10000);
-function qrH(){return `<div class="card" style="text-align:center"><h3>${esc(S.shop.name)}</h3><div id="mq" style="display:inline-block"></div><p class="k">${esc(S.shop.upi||'No UPI ID set')}</p><div class="wrap" style="justify-content:center"><button onclick="posterQ()">Print QR poster</button><button onclick="cp(upi(0,''))">Copy UPI link</button></div></div>
+function qrH(){return `<div class="card" style="text-align:center"><h3>${esc(S.shop.name)}</h3><div id="mq" style="display:inline-block"></div><p class="k">${esc(S.shop.upi||'No UPI ID set')}</p><div class="wrap" style="justify-content:center"><button onclick="posterQ()">QR poster (PDF)</button><button onclick="cp(upi(0,''))">Copy UPI link</button></div></div>
  <div class="card"><label>QR with a fixed amount</label><input id="qa2" type="number" min="0" placeholder="Amount" oninput="qr('mq2',upi(+this.value||0,''),200)"><div id="mq2"></div></div>`}
-function posterQ(){const c=$('#mq canvas'),i=$('#mq img');const src=c?c.toDataURL():i?i.src:'';if(!src)return toast('Add a UPI ID first');$('#pr').innerHTML=`<div style="text-align:center"><h1>${esc(S.shop.name)}</h1><h2>Scan to pay</h2><img src="${src}" width="320" height="320"><p>${esc(S.shop.upi)}</p></div>`;try{window.print()}catch(e){toast('Printing is not available here')}}
+function posterQ(){const c=$('#mq canvas'),im=$('#mq img');const src=c?c:im;if(!src)return toast('Add a UPI ID first');try{const W=720,H=1000,K=2,cv=document.createElement('canvas');cv.width=W*K;cv.height=H*K;const x=cv.getContext('2d');x.scale(K,K);x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textAlign='center';x.fillStyle='#0f6b4f';x.fillRect(0,0,W,110);x.fillStyle='#fff';x.font='700 38px system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif';x.fillText(clip(S.shop.name,26),W/2,70);x.fillStyle='#14201b';x.font='700 44px system-ui,sans-serif';x.fillText('Scan to pay',W/2,200);x.drawImage(src,(W-420)/2,250,420,420);x.font='700 26px system-ui,sans-serif';x.fillText('Any UPI app',W/2,740);x.fillStyle='#5f6f67';x.font='24px system-ui,sans-serif';x.fillText(S.shop.upi,W/2,790);pdfFromCanvas(cv,'shop-qr-poster.pdf');toast('PDF downloaded')}catch(e){toast('Could not create PDF')}}
 function setH(){const s=S.shop;return `<div class="card"><h3>Shop settings</h3><label>Shop name</label><input id="s1" value="${esc(s.name)}"><label>UPI ID (for permanent QR)</label><input id="s2" value="${esc(s.upi)}" placeholder="name@bank"><label>Shop phone</label><input id="s3" value="${esc(s.phone)}">
  <label>Shop PIN (4–8 digits, blank to disable)</label><input id="s4" type="password" inputmode="numeric" value="${esc(s.pin)}"><label>Default reminder language</label><select id="s5">${sel(LN,s.lang)}</select><label>Default tone</label><select id="s6">${sel(TN,s.tone)}</select><label>Theme</label><select id="s7">${sel({'':'Auto',light:'Light',dark:'Dark'},s.theme)}</select><label>Auto-lock when idle (needs a PIN)</label><select id="s8">${sel({0:'Never',1:'1 minute',5:'5 minutes',15:'15 minutes'},s.lockMin??5)}</select><button class="pri" onclick="saveS()">Save settings</button></div>
  <div class="card"><h3>Online customer links</h3><p class="k">Each customer gets a private link to see their khata and report wrong entries. Needs the Firebase setup from the guide.</p><label>Admin email (Firebase)</label><input id="c1" type="email" value="${esc(cl().email)}"><label>Admin password</label><input id="c2" type="password" autocomplete="off"><label>Customer site URL (folder where index.html is published)</label><input id="c3" value="${esc(cl().site)}" placeholder="https://username.github.io/khata/"><button class="pri" onclick="saveC()">Connect and sync now</button><p class="k" id="cst">${esc(cState)}</p></div>
