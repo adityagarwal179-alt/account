@@ -269,7 +269,7 @@ const pobj=p=>({v:1,shop:{name:S.shop.name,upi:S.shop.upi,phone:S.shop.phone,pm:
 
 /* ===== Multi-device data sync (Firestore collection "sync") ===== */
 const SC='sync',DP=()=>'projects/'+CF.projectId+'/databases/(default)/documents',SK={p:'parties',e:'entries',d:'disputes',c:'claims'};
-let lastTs=0,didFull=false,pendR=false;
+let lastTs=0,didFull=false,pendR=false,syInfo='';
 const ts=()=>{let n=Date.now()+(S.skew||0);if(n<=lastTs)n=lastTs+1;return lastTs=n},
  hs=r=>JSON.stringify(r,(k,v)=>k==='_u'?undefined:v),
  shopSub=()=>{const s=S.shop;return{name:s.name,upi:s.upi,phone:s.phone,pm:s.pm,mc:s.mc}},
@@ -293,7 +293,7 @@ async function pullData(full){let from=(full||!S.lp)?0:Math.max(0,S.lp-6e5),docs
  for(const d of docs.filter(isM))ch=applyDoc(d)||ch;
  for(const d of docs.filter(d=>!isM(d))){ch=applyDoc(d)||ch}
  for(const d of docs){const u=+((d.fields.u||{}).integerValue||0);if(u>mx)mx=u}
- S.lp=mx;return ch}
+ S.lp=mx;syInfo='cloud docs: '+docs.length;return ch}
 async function pushData(){const w=[],ks=[],sy=S.sy,mk=(key,k,data,u)=>({update:{name:DP()+'/'+SC+'/'+encodeURIComponent(key),fields:{k:{stringValue:k},d:{stringValue:JSON.stringify(data)},u:{integerValue:String(u)}}}});
  for(const[key,k,r]of recs()){const h=hs(r);if(sy[key]!==h){w.push(mk(key,k,r,r._u));ks.push([key,h])}}
  const sh=JSON.stringify(shopSub());if(sy.shop!==sh&&S.shop._u>0){w.push(mk('shop','shop',shopSub(),S.shop._u));ks.push(['shop',sh])}
@@ -302,7 +302,7 @@ async function pushData(){const w=[],ks=[],sy=S.sy,mk=(key,k,data,u)=>({update:{
  return w.length}
 async function syncData(manual){stamp();let ch=false;
  try{ch=await pullData(manual||!didFull);didFull=true}catch(e){if(/403/.test(e.message))throw new Error('Firestore rules do not allow "sync" yet - add the rule from the guide');throw e}
- stamp();try{await pushData()}catch(e){if(/403/.test(e.message))throw new Error('Firestore rules do not allow writing "sync" yet - add the rule from the guide');throw e}
+ stamp();try{const n=await pushData();syInfo+=', sent: '+n+', here: '+S.parties.length+' customers / '+S.entries.length+' entries'}catch(e){if(/403/.test(e.message))throw new Error('Firestore rules do not allow writing "sync" yet - add the rule from the guide');throw e}
  S.lastSync=Date.now();save0();return ch}
 function afterRemote(){const t=(document.activeElement||{}).tagName||'';if(!$('#mo').hidden||/INPUT|TEXTAREA|SELECT/.test(t)){pendR=true;return}pendR=false;render()}
 function sched(){if(!ready())return;clearTimeout(ptm);ptm=setTimeout(()=>syncAll(),1500)}
@@ -311,7 +311,7 @@ async function syncAll(manual){if(busy){clearTimeout(ptm);ptm=setTimeout(()=>syn
   if(p.del){if(pushed[p.id]!=='x'){await fsReq('DELETE',FS()+'/pub/'+p.token);pushed[p.id]='x'}continue}
   const o=pobj(p),h=JSON.stringify(o);if(pushed[p.id]===h)continue;
   await fsReq('PATCH',FS()+'/pub/'+p.token,{fields:{d:{stringValue:JSON.stringify({...o,upd:new Date().toISOString()})}}});pushed[p.id]=h;n++}
-  save0();const g=await pullReports();if(g){await syncData();setTimeout(sched,300)}cs('Synced '+new Date().toLocaleTimeString()+(g?' · '+g+' new report(s)':''));if(manual)toast('Online sync done')}
+  save0();const g=await pullReports();if(g){await syncData();setTimeout(sched,300)}cs('Synced '+new Date().toLocaleTimeString()+' ('+syInfo+')'+(g?' · '+g+' new report(s)':''));if(manual)toast('Online sync done')}
  catch(e){cs('Sync failed: '+e.message);if(manual)toast('Sync failed: '+e.message)}busy=false}
 async function pullReports(){const j=await fsReq('GET',FS()+'/reports?pageSize=200');let n=0;
  for(const d of j.documents||[]){const f=d.fields||{},g=k=>(f[k]||{}).stringValue||'',id=d.name.split('/').pop(),p=S.parties.find(x=>x.token&&x.token===g('t')&&!x.del),e=p&&S.entries.find(x=>x.id===g('eid')&&x.pid===p.id&&!x.del),cm=g('claim');
