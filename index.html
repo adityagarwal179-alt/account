@@ -54,7 +54,7 @@ let LG='en';try{LG=localStorage.getItem('kp_lang')||((navigator.language||'').to
 const t=k=>(X[LG]||X.en)[k]??X.en[k]??k;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const r2=n=>Math.round((+n||0)*100)/100;
-const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{minimumFractionDigits:Number.isInteger(Math.round(Math.abs(+n||0)*100)/100)?0:2,maximumFractionDigits:2});
 const lsGet=(k)=>{try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}},lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const sent=()=>lsGet(SENT),url=()=>`https://firestore.googleapis.com/v1/projects/${CF.projectId}/databases/(default)/documents`;
 function toast(m){const e=$('#toast');e.textContent=m;e.hidden=false;clearTimeout(tt);tt=setTimeout(()=>e.hidden=true,2800)}
@@ -69,7 +69,37 @@ async function load(){chrome();const m=$('#app');if(!CF.apiKey||/^PASTE/.test(CF
   if(!r.ok)throw 0;D=JSON.parse((await r.json()).fields.d.stringValue);view()}
  catch(e){m.innerHTML=note(t('noload'))}}
 function drawQr(u){const el=$('#pq');if(!el)return;el.innerHTML='';if(typeof QRCode==='undefined')return;try{new QRCode(el,{text:u,width:170,height:170,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
-const upiUrl=a=>`upi://pay?pa=${encodeURIComponent(D.shop.upi)}&pn=${encodeURIComponent(D.shop.name)}&cu=INR&am=${r2(a).toFixed(2)}&tn=${encodeURIComponent('Khata '+D.name)}`;
+const upiAscii=(t,d,n)=>{t=String(t||'').normalize('NFKD').replace(/[^A-Za-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,n);return t||d};
+const upiUrl=a=>{const am=r2(a);return `upi://pay?pa=${encodeURIComponent(String(D.shop.upi).trim())}&pn=${encodeURIComponent(upiAscii(D.shop.name,'Shop',25))}&am=${Number.isInteger(am)?am:am.toFixed(2)}&cu=INR&tn=${encodeURIComponent(upiAscii('Khata '+D.name,'Khata payment',30))}`};
+function pdfFromCanvas(c,name){
+ const PW=595,PH=842,W=c.width,ph=Math.floor(W*PH/PW),n=Math.max(1,Math.ceil(c.height/ph)),enc=s=>{const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i)&255;return a};
+ const ch=[],offs=[];let len=0;const push=u=>{ch.push(u);len+=u.length};
+ const obj=(i,head,st)=>{offs[i]=len;push(enc(i+' 0 obj\n'+head+(st?'\nstream\n':'\n')));if(st){push(st);push(enc('\nendstream'))}push(enc('\nendobj\n'))};
+ push(enc('%PDF-1.4\n'));
+ obj(1,'<</Type/Catalog/Pages 2 0 R>>');
+ obj(2,'<</Type/Pages/Kids['+Array.from({length:n},(_,k)=>(3+3*k)+' 0 R').join(' ')+']/Count '+n+'>>');
+ for(let k=0;k<n;k++){
+  const sh=Math.min(ph,c.height-k*ph),t=document.createElement('canvas');t.width=W;t.height=sh;const x=t.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,sh);x.drawImage(c,0,k*ph,W,sh,0,0,W,sh);
+  const bin=atob(t.toDataURL('image/jpeg',0.92).split(',')[1]),by=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)by[i]=bin.charCodeAt(i);
+  const H=sh*PW/W,cs='q '+PW+' 0 0 '+H.toFixed(2)+' 0 '+(PH-H).toFixed(2)+' cm /Im0 Do Q',p=3+3*k;
+  obj(p,'<</Type/Page/Parent 2 0 R/MediaBox[0 0 '+PW+' '+PH+']/Resources<</XObject<</Im0 '+(p+2)+' 0 R>>>>/Contents '+(p+1)+' 0 R>>');
+  obj(p+1,'<</Length '+cs.length+'>>',enc(cs));
+  obj(p+2,'<</Type/XObject/Subtype/Image/Width '+W+'/Height '+sh+'/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length '+by.length+'>>',by);
+ }
+ const N=3+3*n,xp=len;let xr='xref\n0 '+N+'\n0000000000 65535 f \n';for(let i=1;i<N;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+ push(enc(xr+'trailer\n<</Size '+N+'/Root 1 0 R>>\nstartxref\n'+xp+'\n%%EOF'));
+ const blob=new Blob(ch,{type:'application/pdf'}),f=new File([blob],name,{type:'application/pdf'});
+ const save=()=>{try{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000)}catch(e){try{window.open(URL.createObjectURL(blob),'_blank')}catch(e2){}}};
+ save();return blob}
+
+function stmtPdf(){try{const E=[...D.entries].sort((a,b)=>a.date.localeCompare(b.date)),W=720,pad=28,rh=34,K=2,F='system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif',H=170+(E.length+1)*rh+110,c=document.createElement('canvas');c.width=W*K;c.height=H*K;const x=c.getContext('2d');x.scale(K,K);x.fillStyle='#fff';x.fillRect(0,0,W,H);
+ const clip=(t,n)=>{t=String(t||'');return t.length>n?t.slice(0,n-1)+'…':t},lab=e=>e.kind==='adv'?'Advance received':e.kind==='refund'?'Advance refunded':e.type==='give'?'Gave':'Got';
+ x.fillStyle='#0f6b4f';x.fillRect(0,0,W,84);x.fillStyle='#fff';x.textAlign='left';x.font='700 26px '+F;x.fillText(clip(D.shop.name,34),pad,42);x.font='14px '+F;x.fillText('Account statement · '+new Date().toISOString().slice(0,10),pad,66);
+ x.fillStyle='#14201b';x.font='700 20px '+F;x.fillText(clip(D.name,34),pad,122);
+ let y=140,run=0;x.fillStyle='#e8f1ed';x.fillRect(pad-8,y,W-2*pad+16,rh);x.fillStyle='#14201b';x.font='700 13px '+F;const cx={d:pad,n:118,g:470,r:580,b:W-pad},hd=(tx,xx,al)=>{x.textAlign=al;x.fillText(tx,xx,y+22)};hd('Date',cx.d,'left');hd('Details',cx.n,'left');hd('Gave',cx.g,'right');hd('Got',cx.r,'right');hd('Balance',cx.b,'right');y+=rh;
+ E.forEach((e,i)=>{run+=e.type==='give'?e.amt:-e.amt;if(i%2){x.fillStyle='#f6f9f7';x.fillRect(pad-8,y,W-2*pad+16,rh)}x.font='13px '+F;x.fillStyle='#14201b';x.textAlign='left';x.fillText(e.date,cx.d,y+22);x.fillText(clip(lab(e)+(e.note?' – '+e.note:''),24),cx.n,y+22);x.textAlign='right';if(e.type==='give'){x.fillStyle='#c2352f';x.fillText(fmt(e.amt),cx.g,y+22)}else{x.fillStyle='#0f6b4f';x.fillText(fmt(e.amt),cx.r,y+22)}x.fillStyle='#14201b';x.fillText(fmt(run),cx.b,y+22);y+=rh});
+ const b=r2(D.bal);y+=14;x.fillStyle='#e8f1ed';x.fillRect(pad-8,y,W-2*pad+16,64);x.textAlign='left';x.fillStyle='#14201b';x.font='700 16px '+F;x.fillText(b>0?'Balance due':b<0?'Advance credit':'All settled',pad,y+38);x.textAlign='right';x.font='700 26px '+F;x.fillStyle=b>0?'#c2352f':'#0f6b4f';x.fillText(fmt(Math.abs(b)),W-pad,y+42);
+ pdfFromCanvas(c,'statement.pdf')}catch(e){alert('PDF could not be created: '+e.message)}}
 function amtIn(v){const b=r2(D.bal),n=r2(v),er=$('#pe');if(!(n>=1&&n<=b)){if(er)er.textContent=t('badamt')+b;const u=$('#pu');if(u)u.removeAttribute('href');const q=$('#pq');if(q)q.innerHTML='';PAYAMT=0;return}
  if(er)er.textContent='';PAYAMT=n;const l=upiUrl(n),u=$('#pu');if(u)u.href=l;drawQr(l)}
 function setAmt(n){const i=$('#pa');if(i)i.value=n;amtIn(n)}
@@ -79,7 +109,7 @@ function view(){chrome();$('#sn').textContent=D.shop.name;const b=r2(D.bal),sd=s
  const half=r2(b/2),canPay=D.shop.upi&&b>=1,serverDates=cl.map(c=>c.date);
  let loc=lsGet(PAYK).filter(x=>!serverDates.includes(x.date)&&Date.now()-new Date(x.date)<6048e5);lsSet(PAYK,loc);
  const stl=s=>t('st_'+s)||s;
- $('#app').innerHTML=`<div class="card"><div class="k">${t('hello')} ${esc(D.name)}</div><div class="k">${b>0?t('owe'):b<0?t('adv'):t('settled')}</div><div class="big ${b>0?'due':'adv'}">${fmt(Math.abs(b))}</div>${b<0?'<p class="k">'+t('advnote')+'</p>':''}<p class="np"><button onclick="window.print()">${t('print')}</button></p></div>
+ $('#app').innerHTML=`<div class="card"><div class="k">${t('hello')} ${esc(D.name)}</div><div class="k">${b>0?t('owe'):b<0?t('adv'):t('settled')}</div><div class="big ${b>0?'due':'adv'}">${fmt(Math.abs(b))}</div>${b<0?'<p class="k">'+t('advnote')+'</p>':''}<p class="np"><button onclick="stmtPdf()">${t('print')}</button></p></div>
  ${canPay?`<div class="card np"><b>${t('payh')}</b><p class="k">${t('partnote')}</p><label for="pa">${t('payamt')}</label><input id="pa" type="number" inputmode="decimal" min="1" max="${b}" step="0.01" value="${PAYAMT}" oninput="amtIn(this.value)"><div class="wrap"><button onclick="setAmt(${b})">${t('full')} ${fmt(b)}</button>${half>=1?`<button onclick="setAmt(${half})">${t('half')} ${fmt(half)}</button>`:''}</div><p class="due k" id="pe"></p><p class="k">${t('scan')}</p><div id="pq"></div><p><a class="btn" id="pu" href="${esc(upiUrl(PAYAMT))}">${t('pay')}</a></p><p><button class="pri" onclick="paidM()">${t('paid')}</button></p></div>`:''}
  ${(cl.length||loc.length)?`<h3>${t('pays')}</h3>${loc.map(x=>`<div class="card row"><div><b>${fmt(x.amt)}</b><div class="k">${esc(new Date(x.date).toLocaleString())}</div></div><span class="chip w">${t('wait')}</span></div>`).join('')}${[...cl].reverse().map(c=>`<div class="card row"><div><b>${fmt(c.amt)}</b><div class="k">${esc(new Date(c.date).toLocaleString())}</div></div><span class="chip ${c.status==='confirmed'?'':'w'}">${esc(stl(c.status))}</span></div>`).join('')}`:''}
  <h3>${t('entries')}</h3>${L.map(e=>{const mine=ds.filter(x=>x.eid===e.id),d=mine[mine.length-1],pend=(d&&d.status==='pending')||sd.includes(e.id+'@'+mine.length);
