@@ -29,37 +29,73 @@ label{font-size:13px;color:var(--m)}
 .md{background:var(--c);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--t);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:30}
 #toast[hidden]{display:none}a.btn{display:inline-block;text-decoration:none;border:1px solid var(--b);border-radius:8px;padding:7px 12px;color:inherit}
-#pr{display:none}@media print{body>*:not(#pr){display:none!important}#pr{display:block;color:#000;background:#fff;padding:12px}#pr td,#pr th{border-bottom:1px solid #ccc;padding:4px 8px;text-align:left}}
+.np{}@media print{.np,header,#toast,.mo{display:none!important}:root{--bg:#fff;--c:#fff;--t:#000;--m:#444;--b:#bbb}body{background:#fff}}#pr{display:none}@media print{body>*:not(#pr){display:none!important}#pr{display:block;color:#000;background:#fff;padding:12px}#pr td,#pr th{border-bottom:1px solid #ccc;padding:4px 8px;text-align:left}}
 </style></head><body>
-<header><div class="hr"><h1 id="sn">My Khata</h1><button onclick="load()">Refresh</button></div></header>
+<header><div class="hr"><h1 id="sn">My Khata</h1><div class="wrap np"><button id="lgb" onclick="setLang()" aria-label="Language">हिं</button><button id="rfb" onclick="load()">Refresh</button></div></div></header>
 <main id="app"></main><div class="mo" id="mo" hidden><div class="md" id="mb"></div></div><div id="toast" hidden></div>
 <script src="config.js"></script>
 <script>
-const $=s=>document.querySelector(s),CF=window.FB||{},T=location.hash.slice(1).replace(/[^\w-]/g,''),SENT='kp_sent_'+T;let D=null,tt;
+const $=s=>document.querySelector(s),CF=window.FB||{},T=location.hash.slice(1).replace(/[^\w-]/g,''),SENT='kp_sent_'+T,PAYK='kp_pay_'+T;let D=null,tt,PAYAMT=0;
+const X={en:{hello:'Hello',owe:'You owe',adv:'Your advance credit with the shop',settled:'All settled',advnote:'It will be adjusted against your next purchases.',
+ payh:'Pay online',partnote:'You can pay the full amount or only a part of it.',payamt:'Amount to pay (₹)',full:'Full',half:'Half',scan:'Scan with any UPI app, or tap the button',pay:'Pay with UPI app',paid:'I have paid',
+ badamt:'Enter an amount between ₹1 and ',entries:'Your entries',none:'No entries yet.',adv1:'Advance deposited',adv2:'Advance refunded to you',give:'Taken on credit',got:'Paid',corr:'Corrected',review:'Under review',rep:'Report wrong',
+ reps:'Your reports',norep:'No reports.',reply:'Shop reply: ',upd:'Last updated: ',pays:'Your online payments',wait:'Waiting for shop to confirm',st_pending:'Pending',st_confirmed:'Confirmed',st_rejected:'Not received',st_approved:'approved',st_rejected2:'rejected',
+ print:'Print / Save PDF',rwh:'Report wrong entry',took:'Taken',paid2:'Paid',wrong:'What is wrong?',w1:'Wrong amount',w2:'I did not take this',w3:'Already paid',w4:'Duplicate entry',w5:'Other',ca:'Correct amount (leave blank to ask for removal)',msg:'Message to shopkeeper',send:'Send report',cancel:'Cancel',
+ sent:'Sent to the shopkeeper',fail:'Could not send. Please try again.',okamt:'Enter a valid amount',pm:'I have paid ₹',ref:'UPI reference / UTR (optional)',pmnote:'Tap send only after your payment is successful. The shop will check and confirm it.',sendp:'Send to shop',pdone:'Sent. The shop will confirm soon.',
+ nosetup:'This page is not set up yet.',nolink:'Please open the private link your shopkeeper sent you.',loading:'Loading…',invalid:'This link is not valid or has been replaced. Please ask the shop for a new link.',noload:'Could not load. Check your internet and tap Refresh.',lang:'हिं',refresh:'Refresh',bal:'Balance'},
+hi:{hello:'नमस्ते',owe:'आपको देना है',adv:'दुकान के पास आपका एडवांस',settled:'हिसाब बराबर है',advnote:'यह आपकी अगली खरीद में जुड़ जाएगा।',
+ payh:'ऑनलाइन भुगतान',partnote:'आप पूरा या थोड़ा (आंशिक) भुगतान कर सकते हैं।',payamt:'भुगतान की राशि (₹)',full:'पूरा',half:'आधा',scan:'किसी भी UPI ऐप से स्कैन करें, या बटन दबाएँ',pay:'UPI ऐप से भुगतान करें',paid:'मैंने भुगतान कर दिया',
+ badamt:'₹1 से इतनी राशि के बीच लिखें: ₹',entries:'आपकी एंट्री',none:'अभी कोई एंट्री नहीं।',adv1:'एडवांस जमा',adv2:'एडवांस आपको वापस किया',give:'उधार लिया',got:'भुगतान किया',corr:'सुधारा गया',review:'जाँच में',rep:'गलत बताएँ',
+ reps:'आपकी शिकायतें',norep:'कोई शिकायत नहीं।',reply:'दुकान का जवाब: ',upd:'आखिरी अपडेट: ',pays:'आपके ऑनलाइन भुगतान',wait:'दुकान की पुष्टि का इंतज़ार',st_pending:'लंबित',st_confirmed:'पुष्टि हो गई',st_rejected:'नहीं मिला',st_approved:'मंज़ूर',st_rejected2:'अस्वीकृत',
+ print:'प्रिंट / PDF सेव',rwh:'गलत एंट्री बताएँ',took:'लिया',paid2:'भुगतान',wrong:'क्या गलत है?',w1:'राशि गलत है',w2:'मैंने यह नहीं लिया',w3:'पहले ही चुका दिया',w4:'दो बार लिखा है',w5:'दूसरा कारण',ca:'सही राशि (हटवाना हो तो खाली छोड़ें)',msg:'दुकानदार को संदेश',send:'भेजें',cancel:'रद्द करें',
+ sent:'दुकानदार को भेज दिया',fail:'नहीं भेज पाए। फिर कोशिश करें।',okamt:'सही राशि लिखें',pm:'मैंने भुगतान किया ₹',ref:'UPI रेफरेंस / UTR (वैकल्पिक)',pmnote:'भुगतान सफल होने के बाद ही भेजें। दुकान जाँचकर पुष्टि करेगी।',sendp:'दुकान को भेजें',pdone:'भेज दिया। दुकान जल्द पुष्टि करेगी।',
+ nosetup:'यह पेज अभी तैयार नहीं है।',nolink:'कृपया दुकानदार का भेजा हुआ निजी लिंक खोलें।',loading:'लोड हो रहा है…',invalid:'यह लिंक सही नहीं है या बदल गया है। दुकान से नया लिंक माँगें।',noload:'लोड नहीं हुआ। इंटरनेट देखें और रिफ्रेश दबाएँ।',lang:'EN',refresh:'रिफ्रेश',bal:'बैलेंस'}};
+let LG='en';try{LG=localStorage.getItem('kp_lang')||((navigator.language||'').toLowerCase().startsWith('hi')?'hi':'en')}catch(e){}
+const t=k=>(X[LG]||X.en)[k]??X.en[k]??k;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2=n=>Math.round((+n||0)*100)/100;
 const fmt=n=>(n<0?'-':'')+'₹'+Math.abs(+n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
-const sent=()=>{try{return JSON.parse(localStorage.getItem(SENT))||[]}catch(e){return[]}},url=()=>`https://firestore.googleapis.com/v1/projects/${CF.projectId}/databases/(default)/documents`;
-function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+const lsGet=(k)=>{try{return JSON.parse(localStorage.getItem(k))||[]}catch(e){return[]}},lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const sent=()=>lsGet(SENT),url=()=>`https://firestore.googleapis.com/v1/projects/${CF.projectId}/databases/(default)/documents`;
+function toast(m){const e=$('#toast');e.textContent=m;e.hidden=false;clearTimeout(tt);tt=setTimeout(()=>e.hidden=true,2800)}
 function openM(h){$('#mb').innerHTML=h;$('#mo').hidden=false}function closeM(){$('#mo').hidden=true}
 $('#mo').addEventListener('click',e=>{if(e.target.id==='mo')closeM()});
 const note=m=>`<div class="card k">${m}</div>`;
-async function load(){const m=$('#app');if(!CF.apiKey||/^PASTE/.test(CF.apiKey)||!CF.projectId){m.innerHTML=note('This page is not set up yet.');return}
- if(!T){m.innerHTML=note('Please open the private link your shopkeeper sent you.');return}m.innerHTML=note('Loading…');
- try{const r=await fetch(`${url()}/pub/${T}?key=${CF.apiKey}`);if(r.status===404||r.status===403){m.innerHTML=note('This link is not valid or has been replaced. Please ask the shop for a new link.');return}
+function setLang(){LG=LG==='hi'?'en':'hi';try{localStorage.setItem('kp_lang',LG)}catch(e){}chrome();if(D)view()}
+function chrome(){document.documentElement.lang=LG==='hi'?'hi':'en';$('#lgb').textContent=t('lang');$('#rfb').textContent=t('refresh')}
+async function load(){chrome();const m=$('#app');if(!CF.apiKey||/^PASTE/.test(CF.apiKey)||!CF.projectId){m.innerHTML=note(t('nosetup'));return}
+ if(!T){m.innerHTML=note(t('nolink'));return}m.innerHTML=note(t('loading'));
+ try{const r=await fetch(`${url()}/pub/${T}?key=${CF.apiKey}`);if(r.status===404||r.status===403){m.innerHTML=note(t('invalid'));return}
   if(!r.ok)throw 0;D=JSON.parse((await r.json()).fields.d.stringValue);view()}
- catch(e){m.innerHTML=note('Could not load. Check your internet and tap Refresh.')}}
-function drawQr(u){const el=$('#pq');if(!el)return;if(typeof QRCode==='undefined'){el.innerHTML='';return}try{new QRCode(el,{text:u,width:170,height:170,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
-function view(){$('#sn').textContent=D.shop.name;const b=D.bal,sd=sent(),ds=D.disputes||[],L=[...D.entries].sort((x,y)=>y.date.localeCompare(x.date)),
- lb=e=>e.kind==='adv'?'Advance deposited':e.kind==='refund'?'Advance refunded to you':e.type==='give'?'Taken on credit':'Paid',
- uu=D.shop.upi&&b>0?`upi://pay?pa=${encodeURIComponent(D.shop.upi)}&pn=${encodeURIComponent(D.shop.name)}&cu=INR&am=${b}&tn=${encodeURIComponent('Khata '+D.name)}`:'';
- $('#app').innerHTML=`<div class="card"><div class="k">Hello ${esc(D.name)}</div><div class="k">${b>0?'You owe':b<0?'Your advance credit with the shop':'All settled'}</div><div class="big ${b>0?'due':'adv'}">${fmt(Math.abs(b))}</div>${b<0?'<p class="k">It will be adjusted against your next purchases.</p>':''}${uu?`<p class="k">Scan with any UPI app, or tap the button</p><div id="pq"></div><p><a class="btn" href="${esc(uu)}">Pay with UPI app</a></p>`:''}</div>
- <h3>Your entries</h3>${L.map(e=>{const mine=ds.filter(x=>x.eid===e.id),d=mine[mine.length-1],pend=(d&&d.status==='pending')||sd.includes(e.id+'@'+mine.length);
-  return `<div class="card row"><div><b class="${e.type==='give'?'due':'adv'}">${lb(e)} ${fmt(e.amt)}</b>${e.edited?' <span class="chip">Corrected</span>':''}<div class="k">${esc(e.date)} ${esc(e.note)}</div></div>${pend?'<span class="chip w">Under review</span>':`<button onclick="reportM('${esc(e.id)}')">Report wrong</button>`}</div>`}).join('')||'<p class="k">No entries yet.</p>'}
- <h3>Your reports</h3>${ds.map(x=>`<div class="card"><span class="chip ${x.status==='pending'?'w':''}">${esc(x.status)}</span> ${esc(x.reason)}${x.reply?'<div class="k">Shop reply: '+esc(x.reply)+'</div>':''}</div>`).join('')||'<p class="k">No reports.</p>'}<p class="k">Last updated: ${esc(new Date(D.upd).toLocaleString())}</p>`;drawQr(uu)}
-function reportM(eid){const e=D.entries.find(x=>x.id===eid);if(!e)return;openM(`<h3>Report wrong entry</h3><p>${e.type==='give'?'Taken':'Paid'} ${fmt(e.amt)} on ${esc(e.date)}</p><label>What is wrong?</label><select id="d1">${['Wrong amount','I did not take this','Already paid','Duplicate entry','Other'].map(x=>`<option>${x}</option>`).join('')}</select><label>Correct amount (leave blank to ask for removal)</label><input id="d2" type="number" min="0" step="0.01"><label>Message to shopkeeper</label><textarea id="d3" maxlength="400"></textarea><div class="wrap"><button class="pri" id="sb" onclick="sendR('${esc(eid)}')">Send report</button><button onclick="closeM()">Cancel</button></div>`)}
-async function sendR(eid){const c=$('#d2').value;if(c!==''&&!(+c>=0))return toast('Enter a valid amount');const b=$('#sb');b.disabled=true;const f=(k,v)=>[k,{stringValue:String(v)}];
- try{const r=await fetch(`${url()}/reports?key=${CF.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:Object.fromEntries([f('t',T),f('eid',eid),f('reason',$('#d1').value),f('claim',c===''?'':Math.round(+c*100)/100),f('note',$('#d3').value.trim().slice(0,400)),f('date',new Date().toISOString())])})});if(!r.ok)throw 0;
-  const s=sent();s.push(eid+'@'+(D.disputes||[]).filter(x=>x.eid===eid).length);try{localStorage.setItem(SENT,JSON.stringify(s))}catch(e){}closeM();view();toast('Sent to the shopkeeper')}
- catch(e){b.disabled=false;toast('Could not send. Please try again.')}}
+ catch(e){m.innerHTML=note(t('noload'))}}
+function drawQr(u){const el=$('#pq');if(!el)return;el.innerHTML='';if(typeof QRCode==='undefined')return;try{new QRCode(el,{text:u,width:170,height:170,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
+const upiUrl=a=>`upi://pay?pa=${encodeURIComponent(D.shop.upi)}&pn=${encodeURIComponent(D.shop.name)}&cu=INR&am=${r2(a).toFixed(2)}&tn=${encodeURIComponent('Khata '+D.name)}`;
+function amtIn(v){const b=r2(D.bal),n=r2(v),er=$('#pe');if(!(n>=1&&n<=b)){if(er)er.textContent=t('badamt')+b;const u=$('#pu');if(u)u.removeAttribute('href');const q=$('#pq');if(q)q.innerHTML='';PAYAMT=0;return}
+ if(er)er.textContent='';PAYAMT=n;const l=upiUrl(n),u=$('#pu');if(u)u.href=l;drawQr(l)}
+function setAmt(n){const i=$('#pa');if(i)i.value=n;amtIn(n)}
+function view(){chrome();$('#sn').textContent=D.shop.name;const b=r2(D.bal),sd=sent(),ds=D.disputes||[],cl=D.claims||[],L=[...D.entries].sort((x,y)=>y.date.localeCompare(x.date)),
+ lb=e=>e.kind==='adv'?t('adv1'):e.kind==='refund'?t('adv2'):e.type==='give'?t('give'):t('got');
+ if(!(PAYAMT>=1&&PAYAMT<=b))PAYAMT=b>0?b:0;
+ const half=r2(b/2),canPay=D.shop.upi&&b>=1,serverDates=cl.map(c=>c.date);
+ let loc=lsGet(PAYK).filter(x=>!serverDates.includes(x.date)&&Date.now()-new Date(x.date)<6048e5);lsSet(PAYK,loc);
+ const stl=s=>t('st_'+s)||s;
+ $('#app').innerHTML=`<div class="card"><div class="k">${t('hello')} ${esc(D.name)}</div><div class="k">${b>0?t('owe'):b<0?t('adv'):t('settled')}</div><div class="big ${b>0?'due':'adv'}">${fmt(Math.abs(b))}</div>${b<0?'<p class="k">'+t('advnote')+'</p>':''}<p class="np"><button onclick="window.print()">${t('print')}</button></p></div>
+ ${canPay?`<div class="card np"><b>${t('payh')}</b><p class="k">${t('partnote')}</p><label for="pa">${t('payamt')}</label><input id="pa" type="number" inputmode="decimal" min="1" max="${b}" step="0.01" value="${PAYAMT}" oninput="amtIn(this.value)"><div class="wrap"><button onclick="setAmt(${b})">${t('full')} ${fmt(b)}</button>${half>=1?`<button onclick="setAmt(${half})">${t('half')} ${fmt(half)}</button>`:''}</div><p class="due k" id="pe"></p><p class="k">${t('scan')}</p><div id="pq"></div><p><a class="btn" id="pu" href="${esc(upiUrl(PAYAMT))}">${t('pay')}</a></p><p><button class="pri" onclick="paidM()">${t('paid')}</button></p></div>`:''}
+ ${(cl.length||loc.length)?`<h3>${t('pays')}</h3>${loc.map(x=>`<div class="card row"><div><b>${fmt(x.amt)}</b><div class="k">${esc(new Date(x.date).toLocaleString())}</div></div><span class="chip w">${t('wait')}</span></div>`).join('')}${[...cl].reverse().map(c=>`<div class="card row"><div><b>${fmt(c.amt)}</b><div class="k">${esc(new Date(c.date).toLocaleString())}</div></div><span class="chip ${c.status==='confirmed'?'':'w'}">${esc(stl(c.status))}</span></div>`).join('')}`:''}
+ <h3>${t('entries')}</h3>${L.map(e=>{const mine=ds.filter(x=>x.eid===e.id),d=mine[mine.length-1],pend=(d&&d.status==='pending')||sd.includes(e.id+'@'+mine.length);
+  return `<div class="card row"><div><b class="${e.type==='give'?'due':'adv'}">${lb(e)} ${fmt(e.amt)}</b>${e.edited?' <span class="chip">'+t('corr')+'</span>':''}<div class="k">${esc(e.date)} ${esc(e.note)}</div></div>${pend?'<span class="chip w np">'+t('review')+'</span>':`<button class="np" onclick="reportM('${esc(e.id)}')">${t('rep')}</button>`}</div>`}).join('')||'<p class="k">'+t('none')+'</p>'}
+ <h3 class="np">${t('reps')}</h3><div class="np">${ds.map(x=>`<div class="card"><span class="chip ${x.status==='pending'?'w':''}">${esc(x.status==='approved'?t('st_approved'):x.status==='rejected'?t('st_rejected2'):t('st_pending'))}</span> ${esc(x.reason)}${x.reply?'<div class="k">'+t('reply')+esc(x.reply)+'</div>':''}</div>`).join('')||'<p class="k">'+t('norep')+'</p>'}</div><p class="k">${t('upd')}${esc(new Date(D.upd).toLocaleString())}</p>`;
+ if(canPay&&PAYAMT>=1)drawQr(upiUrl(PAYAMT))}
+function paidM(){if(!(PAYAMT>=1))return toast(t('okamt'));
+ openM(`<h3>${t('pm')}${PAYAMT}</h3><p class="k">${t('pmnote')}</p><label>${t('payamt')}</label><input id="p1" type="number" inputmode="decimal" min="1" max="${r2(D.bal)}" step="0.01" value="${PAYAMT}"><label>${t('ref')}</label><input id="p2" maxlength="40"><div class="wrap"><button class="pri" id="pb" onclick="sendP()">${t('sendp')}</button><button onclick="closeM()">${t('cancel')}</button></div>`)}
+async function post(f){const r=await fetch(`${url()}/reports?key=${CF.apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:Object.fromEntries(Object.entries(f).map(([k,v])=>[k,{stringValue:String(v)}]))})});if(!r.ok)throw 0}
+async function sendP(){const a=r2($('#p1').value);if(!(a>=1&&a<=r2(D.bal)))return toast(t('badamt')+r2(D.bal));const b=$('#pb');b.disabled=true;const dt=new Date().toISOString();
+ try{await post({t:T,eid:'PAY',reason:'Payment made',claim:a,note:$('#p2').value.trim().slice(0,40),date:dt});const l=lsGet(PAYK);l.push({amt:a,date:dt});lsSet(PAYK,l);closeM();view();toast(t('pdone'))}
+ catch(e){b.disabled=false;toast(t('fail'))}}
+function reportM(eid){const e=D.entries.find(x=>x.id===eid);if(!e)return;openM(`<h3>${t('rwh')}</h3><p>${e.type==='give'?t('took'):t('paid2')} ${fmt(e.amt)} · ${esc(e.date)}</p><label>${t('wrong')}</label><select id="d1">${[['Wrong amount','w1'],['I did not take this','w2'],['Already paid','w3'],['Duplicate entry','w4'],['Other','w5']].map(([v,k])=>`<option value="${v}">${t(k)}</option>`).join('')}</select><label>${t('ca')}</label><input id="d2" type="number" min="0" step="0.01"><label>${t('msg')}</label><textarea id="d3" maxlength="400"></textarea><div class="wrap"><button class="pri" id="sb" onclick="sendR('${esc(eid)}')">${t('send')}</button><button onclick="closeM()">${t('cancel')}</button></div>`)}
+async function sendR(eid){const c=$('#d2').value;if(c!==''&&!(+c>=0))return toast(t('okamt'));const b=$('#sb');b.disabled=true;
+ try{await post({t:T,eid,reason:$('#d1').value,claim:c===''?'':r2(c),note:$('#d3').value.trim().slice(0,400),date:new Date().toISOString()});
+  const s=sent();s.push(eid+'@'+(D.disputes||[]).filter(x=>x.eid===eid).length);lsSet(SENT,s);closeM();view();toast(t('sent'))}
+ catch(e){b.disabled=false;toast(t('fail'))}}
 load();
 </script></body></html>
