@@ -70,7 +70,7 @@ const sel=(o,v)=>Object.entries(o).map(([k,n])=>`<option value="${k}"${String(k)
 const upiAscii=(t,d,n)=>{t=String(t||'').normalize('NFKD').replace(/[^A-Za-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,n);return t||d};
 const upi=(amt,note)=>`upi://pay?pa=${encodeURIComponent(String(S.shop.upi).trim())}&pn=${encodeURIComponent(upiAscii(S.shop.name,'Shop',25))}${amt?'&am='+(Number.isInteger(+amt)?+amt:(+amt).toFixed(2)):''}&cu=INR${S.shop.mc?'&mc='+S.shop.mc:''}${note?'&tn='+encodeURIComponent(upiAscii(note,'Khata payment',30)):''}`;
 function qr(id,text,size){const el=document.getElementById(id);if(!el)return;el.innerHTML='';if(!S.shop.upi){el.innerHTML='<span class="k">Add your UPI ID in Settings to show the QR.</span>';return}
-if(typeof QRCode==='undefined'){el.innerHTML='<span class="k">QR library could not load. Check your connection.</span>';return}try{new QRCode(el,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){el.textContent='QR error'}}
+if(typeof QRCode==='undefined'){el.innerHTML='<span class="k">QR library could not load. Check your connection.</span>';return}try{const wrap=document.createElement('div');wrap.className='qrbox';wrap.style.cssText='background:#fff;padding:16px;border-radius:12px;display:inline-block;line-height:0;max-width:100%';el.appendChild(wrap);const z=Math.max(size,240);new QRCode(wrap,{text,width:z,height:z,correctLevel:QRCode.CorrectLevel.M})}catch(e){el.textContent='QR error'}}
 const TABS=[['home','Home'],['cust','Customers'],['pay','Payments'],['disp','Disputes'],['rep','Reports'],['qr','Shop QR'],['set','Settings']];
 function render(){
  document.documentElement.dataset.theme=S.shop.theme||'';$('#sn').textContent=S.shop.name;const m=$('#app'),nv=$('#nav');
