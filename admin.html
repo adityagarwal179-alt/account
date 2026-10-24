@@ -232,7 +232,7 @@ function restP(id){const p=P(id);if(!p)return;p.del=false;delete pushed[id];log(
 function restE(id){const e=S.entries.find(x=>x.id===id);if(!e)return;e.del=false;log('Restored entry '+fmt(e.amt));save();render();trashM();toast('Entry restored')}
 const trashN=()=>S.parties.filter(p=>p.del).length+S.entries.filter(e=>e.del&&P(e.pid)&&!P(e.pid).del).length;
 function bkDone(){S.lastBackup=Date.now();save0()}
-function bkBanner(){if(!live().length||(S.lastBackup&&Date.now()-S.lastBackup<7*864e5))return '';return `<div class="card row"><div><b>Backup recommended</b><div class="k">${S.lastBackup?'Last backup: '+new Date(S.lastBackup).toLocaleDateString():'You have not taken a backup yet.'}</div></div><button class="pri" onclick="dataM('json')">Back up now</button></div>`}
+function bkBanner(){if(!live().length||(ready()&&S.lastSync&&Date.now()-S.lastSync<864e5)||(S.lastBackup&&Date.now()-S.lastBackup<7*864e5))return '';return `<div class="card row"><div><b>Backup recommended</b><div class="k">${S.lastBackup?'Last backup: '+new Date(S.lastBackup).toLocaleDateString():'You have not taken a backup yet.'}</div></div><button class="pri" onclick="dataM('json')">Back up now</button></div>`}
 function impFile(el){const f=el.files&&el.files[0];if(!f)return;if(f.size>8e6)return toast('File is too large');const r=new FileReader();r.onload=()=>{$('#im').value=String(r.result||'');toast('File loaded. Tap Restore.')};r.onerror=()=>toast('Could not read the file');r.readAsText(f)}
 let lastAct=Date.now();['click','keydown','touchstart','mousemove'].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
 function lockCheck(){const m=S.shop.lockMin??5;if(S.shop.pin&&unlocked&&m>0&&Date.now()-lastAct>m*6e4){unlocked=false;closeM();render()}}
@@ -242,7 +242,7 @@ function qrH(){return `<div class="card" style="text-align:center"><h3>${esc(S.s
 function posterQ(){const c=$('#mq canvas'),im=$('#mq img');const src=c?c:im;if(!src)return toast('Add a UPI ID first');try{const W=720,H=1000,K=2,cv=document.createElement('canvas');cv.width=W*K;cv.height=H*K;const x=cv.getContext('2d');x.scale(K,K);x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textAlign='center';x.fillStyle='#0f6b4f';x.fillRect(0,0,W,110);x.fillStyle='#fff';x.font='700 38px system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif';x.fillText(clip(S.shop.name,26),W/2,70);x.fillStyle='#14201b';x.font='700 44px system-ui,sans-serif';x.fillText('Scan to pay',W/2,200);x.drawImage(src,(W-420)/2,250,420,420);x.font='700 26px system-ui,sans-serif';x.fillText('Any UPI app',W/2,740);x.fillStyle='#5f6f67';x.font='24px system-ui,sans-serif';x.fillText(S.shop.upi,W/2,790);pdfFromCanvas(cv,'shop-qr-poster.pdf');toast('PDF downloaded')}catch(e){toast('Could not create PDF')}}
 function setH(){const s=S.shop;return `<div class="card"><h3>Shop settings</h3><label>Shop name</label><input id="s1" value="${esc(s.name)}"><label>UPI ID (for permanent QR)</label><input id="s2" value="${esc(s.upi)}" placeholder="name@bank"><label>Shop phone</label><input id="s3" value="${esc(s.phone)}">
  <label>Shop PIN (4–8 digits, blank to disable)</label><input id="s4" type="password" inputmode="numeric" value="${esc(s.pin)}"><label>Default reminder language</label><select id="s5">${sel(LN,s.lang)}</select><label>Default tone</label><select id="s6">${sel(TN,s.tone)}</select><label>Theme</label><select id="s7">${sel({'':'Auto',light:'Light',dark:'Dark'},s.theme)}</select><label>Auto-lock when idle (needs a PIN)</label><select id="s8">${sel({0:'Never',1:'1 minute',5:'5 minutes',15:'15 minutes'},s.lockMin??5)}</select><label>Customer payment link mode</label><select id="s9">${sel({safe:'Safe (recommended): UPI ID only, customer types the amount',full:'Full: amount filled in (often blocked for personal UPI IDs)'},s.pm||'safe')}</select><label>Merchant code / MCC (only if you have a merchant UPI ID, else leave blank)</label><input id="s10" inputmode="numeric" maxlength="4" value="${esc(s.mc||'')}" placeholder="e.g. 5411"><button class="pri" onclick="saveS()">Save settings</button></div>
- <div class="card"><h3>Online customer links</h3><p class="k">Each customer gets a private link to see their khata and report wrong entries. Needs the Firebase setup from the guide.</p><label>Admin email (Firebase)</label><input id="c1" type="email" value="${esc(cl().email)}"><label>Admin password</label><input id="c2" type="password" autocomplete="off"><label>Customer site URL (folder where index.html is published)</label><input id="c3" value="${esc(cl().site)}" placeholder="https://username.github.io/khata/"><button class="pri" onclick="saveC()">Connect and sync now</button><p class="k" id="cst">${esc(cState)}</p></div>
+ <div class="card"><h3>Online sync and customer links</h3><p class="k"><b>Same data on phone and computer:</b> on every device, enter the SAME admin email and password below and tap Connect. After that all entries sync automatically. Each customer also gets a private link to see their khata and report wrong entries.</p><label>Admin email (Firebase)</label><input id="c1" type="email" value="${esc(cl().email)}"><label>Admin password</label><input id="c2" type="password" autocomplete="off"><label>Customer site URL (folder where index.html is published)</label><input id="c3" value="${esc(cl().site)}" placeholder="https://username.github.io/khata/"><button class="pri" onclick="saveC()">Connect and sync now</button><p class="k" id="cst">${esc(cState)}</p></div>
  <div class="card"><h3>Data</h3><div class="wrap"><button onclick="dataM('json')">Backup (JSON)</button><button onclick="dataM('csv')">Export CSV</button><button onclick="importM()">Restore backup</button><button onclick="trashM()">Trash (${trashN()})</button><button class="dng" onclick="resetA()">Erase everything</button></div></div>
  <div class="card"><h3>Activity log</h3>${S.log.length?S.log.slice(0,25).map(l=>`<div class="k">${esc(l.t)} · ${esc(l.m)}</div>`).join(''):'<span class="k">No activity yet.</span>'}</div>`}
 function saveS(){const pn=$('#s4').value;if(pn&&!/^\d{4,8}$/.test(pn))return toast('PIN must be 4–8 digits');const u=$('#s2').value.trim();if(u&&!/^[\w.\-]+@[\w]+$/.test(u))return toast('UPI ID looks invalid, e.g. name@bank');
@@ -250,27 +250,68 @@ function saveS(){const pn=$('#s4').value;if(pn&&!/^\d{4,8}$/.test(pn))return toa
 function dataM(k){let t;if(k==='json')t=JSON.stringify(S);else t=csv();
  openM(`<h3>${k==='json'?'Backup':'CSV export'}</h3><p class="k">Copy and save this text somewhere safe.</p><textarea id="dx" rows="10" readonly>${esc(t)}</textarea><div class="wrap"><button class="pri" onclick="${k==='json'?'bkDone();':''}$('#dx').select();cp($('#dx').value)">Copy</button><button onclick="${k==='json'?'bkDone();':''}dl('${k==='json'?'khata_backup.json':'khata_entries.csv'}',$('#dx').value)">Download</button><button onclick="closeM()">Close</button></div>`)}
 function importM(){openM(`<h3>Restore backup</h3><p class="k">Choose your backup file, or paste the text. This replaces current data.</p><input type="file" accept=".json,application/json,text/plain" onchange="impFile(this)"><textarea id="im" rows="8"></textarea><div class="wrap"><button class="pri" onclick="doImp()">Restore</button><button onclick="closeM()">Cancel</button></div>`)}
-function doImp(){try{const d=JSON.parse($('#im').value);if(!d.shop||!Array.isArray(d.parties)||!Array.isArray(d.entries))throw 0;d.disputes=d.disputes||[];d.claims=d.claims||[];d.log=d.log||[];S=d;pushed={};cTok=null;save();closeM();render();toast('Backup restored')}catch(e){toast('That is not a valid backup')}}
-function resetA(){if(!confirm('Erase all customers, entries and settings?'))return;S={shop:{name:'My Shop',upi:'',phone:'',pin:'',lang:'en',tone:0,theme:''},parties:[],entries:[],disputes:[],claims:[],log:[]};save();unlocked=false;tab='home';render()}
+function doImp(){try{const d=JSON.parse($('#im').value);if(!d.shop||!Array.isArray(d.parties)||!Array.isArray(d.entries))throw 0;d.disputes=d.disputes||[];d.claims=d.claims||[];d.log=d.log||[];d.cloud=S.cloud;d.skew=S.skew;d.sy={};d.st={};d.lp=0;d.resetAt=ts();d.metaDirty=true;d.shop._u=null;S=d;pushed={};save();closeM();render();toast('Backup restored')}catch(e){toast('That is not a valid backup')}}
+function resetA(){if(!confirm(ready()?'Erase all customers, entries and settings on ALL synced devices?':'Erase all customers, entries and settings?'))return;S={cloud:S.cloud,skew:S.skew,resetAt:ts(),metaDirty:true,shop:{name:'My Shop',upi:'',phone:'',pin:'',lang:'en',tone:0,theme:''},parties:[],entries:[],disputes:[],claims:[],log:[]};save();unlocked=false;tab='home';render()}
 
 const CF=window.FB||{},cl=()=>S.cloud||(S.cloud={email:'',site:''}),save0=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}},tk=()=>[...crypto.getRandomValues(new Uint8Array(18))].map(b=>b.toString(36).padStart(2,'0')).join(''),
  site=()=>cl().site||location.href.split('#')[0].replace(/[^\/]*$/,''),FS=()=>`https://firestore.googleapis.com/v1/projects/${CF.projectId}/databases/(default)/documents`,
- ready=()=>!!(CF.apiKey&&!/^PASTE/.test(CF.apiKey)&&CF.projectId&&cl().email&&sessionStorage.getItem('kp_pw'));
+ lsg=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lss=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}},
+ ready=()=>!!(CF.apiKey&&!/^PASTE/.test(CF.apiKey)&&CF.projectId&&cl().email&&(sessionStorage.getItem('kp_pw')||lsg('kp_rt')));
 let cTok=null,cExp=0,cState='',busy=false,ptm,pushed={};
 function cs(m){cState=m;['cst','hst'].forEach(i=>{const e=document.getElementById(i);if(e)e.textContent=i==='hst'?'Online: '+m:m})}
-async function cAuth(){if(!CF.apiKey||/^PASTE/.test(CF.apiKey)||!CF.projectId)throw new Error('Fill config.js first');const pw=sessionStorage.getItem('kp_pw');if(!cl().email||!pw)throw new Error('Enter admin email and password in Settings');
+async function cAuth(){if(!CF.apiKey||/^PASTE/.test(CF.apiKey)||!CF.projectId)throw new Error('Fill config.js first');const rt=lsg('kp_rt');if(rt){try{const r=await fetch('https://securetoken.googleapis.com/v1/token?key='+CF.apiKey,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(rt)}),j=await r.json();if(r.ok&&j.id_token){cTok=j.id_token;cExp=Date.now()+3e6;lss('kp_rt',j.refresh_token||rt);return}}catch(e){}}
+ const pw=sessionStorage.getItem('kp_pw');if(!cl().email||!pw)throw new Error('Enter admin email and password in Settings');
  const r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+CF.apiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:cl().email,password:pw,returnSecureToken:true})}),j=await r.json();
- if(!r.ok)throw new Error('Login failed: '+((j.error||{}).message||r.status));cTok=j.idToken;cExp=Date.now()+3e6}
+ if(!r.ok)throw new Error('Login failed: '+((j.error||{}).message||r.status));cTok=j.idToken;cExp=Date.now()+3e6;lss('kp_rt',j.refreshToken)}
 async function fsReq(m,u,b){if(!cTok||Date.now()>cExp)await cAuth();const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+cTok},body:b?JSON.stringify(b):undefined});
  if(!r.ok&&!(m==='DELETE'&&r.status===404))throw new Error('Server error '+r.status);return m==='DELETE'?{}:r.json()}
 const pobj=p=>({v:1,shop:{name:S.shop.name,upi:S.shop.upi,phone:S.shop.phone,pm:S.shop.pm||'safe',mc:S.shop.mc||''},name:p.name,bal:bal(p.id),entries:ents(p.id).map(e=>({id:e.id,type:e.type,kind:e.kind||'',amt:e.amt,date:e.date,note:e.note||'',edited:!!e.edited})),claims:S.claims.filter(c=>c.pid===p.id).slice(-8).map(c=>({amt:c.amt,date:c.date,status:c.status})),disputes:S.disputes.filter(d=>d.pid===p.id).map(d=>({eid:d.eid,status:d.status,reason:d.reason,reply:d.reply||'',claim:d.claim}))});
+
+/* ===== Multi-device data sync (Firestore collection "sync") ===== */
+const SC='sync',DP=()=>'projects/'+CF.projectId+'/databases/(default)/documents',SK={p:'parties',e:'entries',d:'disputes',c:'claims'};
+let lastTs=0,didFull=false,pendR=false;
+const ts=()=>{let n=Date.now()+(S.skew||0);if(n<=lastTs)n=lastTs+1;return lastTs=n},
+ hs=r=>JSON.stringify(r,(k,v)=>k==='_u'?undefined:v),
+ shopSub=()=>{const s=S.shop;return{name:s.name,upi:s.upi,phone:s.phone,pm:s.pm,mc:s.mc}},
+ defShop=()=>{const s=S.shop;return s.name==='My Shop'&&!s.upi&&!s.phone},
+ setSkew=j=>{const t=Date.parse(j&&(j.commitTime||j.updateTime));if(t)S.skew=t-Date.now()},
+ recs=()=>{const o=[];for(const k in SK)(S[SK[k]]||[]).forEach(r=>o.push([k+'_'+r.id,k,r]));return o};
+function stamp(){S.sy=S.sy||{};S.st=S.st||{};
+ for(const[key,k,r]of recs()){const h=hs(r);if(S.st[key]!==h){r._u=ts();S.st[key]=h}else if(r._u==null)r._u=ts()}
+ const h=JSON.stringify(shopSub());if(S.st.shop!==h){S.shop._u=(S.shop._u==null&&defShop())?0:ts();S.st.shop=h}}
+function applyDoc(d){const f=d.fields||{},g=x=>(f[x]||{}).stringValue||'',u=+((f.u||{}).integerValue||0),k=g('k'),key=decodeURIComponent(d.name.split('/').pop());let data;try{data=JSON.parse(g('d'))}catch(e){return false}
+ if(k==='meta'){const ra=+data.resetAt||0;if(ra<=(S.resetAt||0))return false;S.resetAt=ra;
+  for(const kk in SK)S[SK[kk]]=(S[SK[kk]]||[]).filter(r=>{const keep=(r._u||0)>=ra;if(!keep){delete S.st[kk+'_'+r.id];delete S.sy[kk+'_'+r.id]}return keep});return true}
+ if(u<(S.resetAt||0))return false;
+ if(k==='shop'){if((S.shop._u||0)>=u)return false;Object.assign(S.shop,data);S.shop._u=u;S.st.shop=S.sy.shop=JSON.stringify(shopSub());return true}
+ const a=S[SK[k]];if(!a||!data.id)return false;const i=a.findIndex(x=>x.id===data.id);if(i>=0&&(a[i]._u||0)>=u)return false;
+ data._u=u;if(i>=0)a[i]=data;else a.push(data);S.st[key]=S.sy[key]=hs(data);return true}
+async function pullData(full){let from=(full||!S.lp)?0:Math.max(0,S.lp-6e5),docs=[],mx=S.lp||0;
+ for(;;){const j=await fsReq('POST',FS()+':runQuery',{structuredQuery:{from:[{collectionId:SC}],where:{fieldFilter:{field:{fieldPath:'u'},op:'GREATER_THAN',value:{integerValue:String(from)}}},orderBy:[{field:{fieldPath:'u'},direction:'ASCENDING'}],limit:300}});
+  const ds=(Array.isArray(j)?j:[]).filter(x=>x.document).map(x=>x.document);docs.push(...ds);if(ds.length<300)break;from=+ds[ds.length-1].fields.u.integerValue}
+ const isM=d=>((d.fields.k||{}).stringValue)==='meta';let ch=false;
+ for(const d of docs.filter(isM))ch=applyDoc(d)||ch;
+ for(const d of docs.filter(d=>!isM(d))){ch=applyDoc(d)||ch}
+ for(const d of docs){const u=+((d.fields.u||{}).integerValue||0);if(u>mx)mx=u}
+ S.lp=mx;return ch}
+async function pushData(){const w=[],ks=[],sy=S.sy,mk=(key,k,data,u)=>({update:{name:DP()+'/'+SC+'/'+encodeURIComponent(key),fields:{k:{stringValue:k},d:{stringValue:JSON.stringify(data)},u:{integerValue:String(u)}}}});
+ for(const[key,k,r]of recs()){const h=hs(r);if(sy[key]!==h){w.push(mk(key,k,r,r._u));ks.push([key,h])}}
+ const sh=JSON.stringify(shopSub());if(sy.shop!==sh&&S.shop._u>0){w.push(mk('shop','shop',shopSub(),S.shop._u));ks.push(['shop',sh])}
+ if(S.metaDirty){w.push(mk('meta','meta',{resetAt:S.resetAt},S.resetAt));ks.push(['meta',null])}
+ for(let i=0;i<w.length;i+=200){const j=await fsReq('POST',FS()+':commit',{writes:w.slice(i,i+200)});setSkew(j);ks.slice(i,i+200).forEach(([key,h])=>{if(key==='meta')S.metaDirty=false;else sy[key]=h});save0()}
+ return w.length}
+async function syncData(manual){stamp();let ch=false;
+ try{ch=await pullData(manual||!didFull);didFull=true}catch(e){if(/403/.test(e.message))throw new Error('Firestore rules do not allow "sync" yet - add the rule from the guide');throw e}
+ stamp();try{await pushData()}catch(e){if(/403/.test(e.message))throw new Error('Firestore rules do not allow writing "sync" yet - add the rule from the guide');throw e}
+ S.lastSync=Date.now();save0();return ch}
+function afterRemote(){const t=(document.activeElement||{}).tagName||'';if(!$('#mo').hidden||/INPUT|TEXTAREA|SELECT/.test(t)){pendR=true;return}pendR=false;render()}
 function sched(){if(!ready())return;clearTimeout(ptm);ptm=setTimeout(()=>syncAll(),1500)}
 async function syncAll(manual){if(busy){clearTimeout(ptm);ptm=setTimeout(()=>syncAll(manual),2000);return}busy=true;
- try{cs('Syncing…');let n=0;for(const p of S.parties){p.token=p.token||tk();
+ try{cs('Syncing…');const rch=await syncData(manual);if(rch||pendR)afterRemote();let n=0;for(const p of S.parties){p.token=p.token||tk();
   if(p.del){if(pushed[p.id]!=='x'){await fsReq('DELETE',FS()+'/pub/'+p.token);pushed[p.id]='x'}continue}
   const o=pobj(p),h=JSON.stringify(o);if(pushed[p.id]===h)continue;
   await fsReq('PATCH',FS()+'/pub/'+p.token,{fields:{d:{stringValue:JSON.stringify({...o,upd:new Date().toISOString()})}}});pushed[p.id]=h;n++}
-  save0();const g=await pullReports();if(g)setTimeout(sched,300);cs('Synced '+new Date().toLocaleTimeString()+(g?' · '+g+' new report(s)':''));if(manual)toast('Online sync done')}
+  save0();const g=await pullReports();if(g){await syncData();setTimeout(sched,300)}cs('Synced '+new Date().toLocaleTimeString()+(g?' · '+g+' new report(s)':''));if(manual)toast('Online sync done')}
  catch(e){cs('Sync failed: '+e.message);if(manual)toast('Sync failed: '+e.message)}busy=false}
 async function pullReports(){const j=await fsReq('GET',FS()+'/reports?pageSize=200');let n=0;
  for(const d of j.documents||[]){const f=d.fields||{},g=k=>(f[k]||{}).stringValue||'',id=d.name.split('/').pop(),p=S.parties.find(x=>x.token&&x.token===g('t')&&!x.del),e=p&&S.entries.find(x=>x.id===g('eid')&&x.pid===p.id&&!x.del),cm=g('claim');
@@ -279,7 +320,7 @@ async function pullReports(){const j=await fsReq('GET',FS()+'/reports?pageSize=2
   await fsReq('DELETE','https://firestore.googleapis.com/v1/'+d.name)}
  if(n){render()}return n}
 function saveC(){const em=$('#c1').value.trim(),pw=$('#c2').value,st=$('#c3').value.trim();if(!em||!pw)return toast('Enter admin email and password');if(st&&!/^https:\/\/.+/.test(st))return toast('Site URL must start with https://');
- cl().email=em;cl().site=st&&!st.endsWith('/')?st+'/':st;sessionStorage.setItem('kp_pw',pw);cTok=null;pushed={};save0();syncAll(true)}
+ cl().email=em;cl().site=st&&!st.endsWith('/')?st+'/':st;sessionStorage.setItem('kp_pw',pw);lss('kp_rt',null);cTok=null;pushed={};didFull=false;save0();syncAll(true)}
 const siteOk=()=>/^https?:\/\//.test(site()),
  cLink=p=>{if(!siteOk())return '';if(!p.token){p.token=tk();save0()}return site()+'index.html#'+p.token},
  linkMsg=p=>{p.token=p.token||tk();return `Namaste ${p.name} ji 🙏\nApna hisaab dekhein aur poora ya thoda payment karein:\n${site()}index.html#${p.token}\n\n- ${S.shop.name}`};
@@ -292,5 +333,5 @@ function linkM(id){const p=P(id),t=linkMsg(p);save0();
 async function newTok(id){if(!confirm('The old link will stop working. Continue?'))return;const p=P(id),old=p.token;p.token=tk();delete pushed[id];save();if(ready()){try{await fsReq('DELETE',FS()+'/pub/'+old)}catch(e){}}linkM(id)}
 
 render();
-if(ready())syncAll();setInterval(()=>{if(ready())syncAll()},60000);
+if(ready())syncAll();setInterval(()=>{if(ready())syncAll()},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ready())syncAll()});
 </script></body></html>
