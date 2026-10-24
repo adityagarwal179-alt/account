@@ -68,7 +68,7 @@ async function load(){chrome();const m=$('#app');if(!CF.apiKey||/^PASTE/.test(CF
  try{const r=await fetch(`${url()}/pub/${T}?key=${CF.apiKey}`);if(r.status===404||r.status===403){m.innerHTML=note(t('invalid'));return}
   if(!r.ok)throw 0;D=JSON.parse((await r.json()).fields.d.stringValue);view()}
  catch(e){m.innerHTML=note(t('noload'))}}
-function drawQr(u){const el=$('#pq');if(!el)return;el.innerHTML='';if(typeof QRCode==='undefined')return;try{new QRCode(el,{text:u,width:170,height:170,correctLevel:QRCode.CorrectLevel.M})}catch(e){}}
+function drawQr(u){const el=$('#pq');if(!el)return;el.innerHTML='';if(typeof QRCode==='undefined'){el.innerHTML='<span class="k">QR could not load. Use the app buttons or copy the UPI ID.</span>';return}try{const wrap=document.createElement('div');wrap.className='qrbox';wrap.style.cssText='background:#fff;padding:16px;border-radius:12px;display:inline-block;line-height:0;max-width:100%';el.appendChild(wrap);new QRCode(wrap,{text:u,width:240,height:240,correctLevel:QRCode.CorrectLevel.M})}catch(e){el.innerHTML='<span class="k">QR error. Use the app buttons or copy the UPI ID.</span>'}}
 const upiAscii=(t,d,n)=>{t=String(t||'').normalize('NFKD').replace(/[^A-Za-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().slice(0,n);return t||d};
 const upiUrl=(a,simple)=>{const am=r2(a),mc=/^\d{4}$/.test(D.shop.mc||'')?'&mc='+D.shop.mc:'',base=`upi://pay?pa=${encodeURIComponent(String(D.shop.upi).trim())}&pn=${encodeURIComponent(upiAscii(D.shop.name,'Shop',25))}`;if(simple)return base+'&cu=INR'+mc;return base+`&am=${Number.isInteger(am)?am:am.toFixed(2)}&cu=INR${mc}&tn=${encodeURIComponent(upiAscii('Khata '+D.name,'Khata payment',30))}`};
 const payHref=n=>upiUrl(n,(D.shop.pm||'safe')!=='full');
