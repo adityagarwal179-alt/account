@@ -271,7 +271,18 @@ function payOk(id){const c=S.claims.find(x=>x.id===id);if(!c||c.status!=='pendin
  const e={id:uid(),pid:c.pid,type:'got',kind:'',amt:a,date:today(),due:'',note:'Online payment'+(c.note?' · '+c.note:''),mode:'upi'};S.entries.push(e);c.status='confirmed';c.amt=a;log('Online payment '+fmt(a)+' confirmed · '+P(c.pid).name);save();render();rcptM(e.id);toast('Payment added to khata')}
 function payNo(id){const c=S.claims.find(x=>x.id===id);if(!c||c.status!=='pending')return;if(!confirm('Mark as not received? The customer will see this.'))return;c.status='rejected';log('Online payment not received · '+(P(c.pid)||{}).name);save();render();toast('Marked as not received')}
 function trashM(){const dp=S.parties.filter(p=>p.del),de=S.entries.filter(e=>e.del&&P(e.pid)&&!P(e.pid).del).slice(-30).reverse();
- openM(`<h3>Trash</h3><p class="k">Deleted customers and entries can be brought back here.</p><b>Customers</b>${dp.length?dp.map(p=>`<div class="card row"><div><b>${esc(p.name)}</b><div class="k">${esc(p.phone)}</div></div><button class="pri" onclick="restP('${p.id}')">Restore</button></div>`).join(''):'<p class="k">No deleted customers.</p>'}<b>Entries (last 30)</b>${de.length?de.map(e=>`<div class="card row"><div><b>${esc(P(e.pid).name)}</b> ${lbl(e)} ${fmt(e.amt)}<div class="k">${dmy(e.date)} ${esc(e.note)}</div></div><button class="pri" onclick="restE('${e.id}')">Restore</button></div>`).join(''):'<p class="k">No deleted entries.</p>'}<button onclick="closeM()">Close</button>`)}
+ openM(`<h3>Trash</h3><p class="k">Restore deleted customers and entries, or delete them forever. Deleting forever cannot be undone.</p><b>Customers</b>${dp.length?dp.map(p=>`<div class="card row"><div><b>${esc(p.name)}</b><div class="k">${esc(p.phone)}</div></div><div class="wrap"><button class="pri" onclick="restP('${p.id}')">Restore</button><button class="dng" onclick="purgeP('${p.id}')">Delete forever</button></div></div>`).join(''):'<p class="k">No deleted customers.</p>'}<b>Entries (last 30)</b>${de.length?de.map(e=>`<div class="card row"><div><b>${esc(P(e.pid).name)}</b> ${lbl(e)} ${fmt(e.amt)}<div class="k">${dmy(e.date)} ${esc(e.note)}</div></div><div class="wrap"><button class="pri" onclick="restE('${e.id}')">Restore</button><button class="dng" onclick="purgeE('${e.id}')">Delete forever</button></div></div>`).join(''):'<p class="k">No deleted entries.</p>'}<div class="wrap" style="margin-top:10px"><button class="dng" onclick="emptyTrash()">Empty trash</button><button onclick="closeM()">Close</button></div>`)}
+function doPurge(pids,eids){const ks=[];pids=new Set(pids);eids=new Set(eids);
+ S.entries.forEach(e=>{if(pids.has(e.pid))eids.add(e.id)});
+ pids.forEach(id=>{ks.push('p_'+id);const p=P(id);if(p&&p.token&&ready())fsReq('DELETE',FS()+'/pub/'+p.token).catch(()=>{})});
+ eids.forEach(id=>ks.push('e_'+id));
+ S.disputes.filter(d=>pids.has(d.pid)||eids.has(d.eid)).forEach(d=>ks.push('d_'+d.id));S.claims.filter(c=>pids.has(c.pid)).forEach(c=>ks.push('c_'+c.id));
+ S.parties=S.parties.filter(p=>!pids.has(p.id));S.entries=S.entries.filter(e=>!eids.has(e.id));S.disputes=S.disputes.filter(d=>!(pids.has(d.pid)||eids.has(d.eid)));S.claims=S.claims.filter(c=>!pids.has(c.pid));
+ pids.forEach(id=>{delete pushed[id]});S.purge=[...new Set([...(S.purge||[]),...ks])];S.st=S.st||{};S.sy=S.sy||{};ks.forEach(k=>{delete S.st[k];delete S.sy[k]});return ks.length}
+function purgeP(id){const p=P(id);if(!p)return;const n=S.entries.filter(e=>e.pid===id).length;if(!confirm('Permanently delete '+p.name+' and '+n+' entries? This cannot be undone.'))return;const nm=p.name;doPurge([id],[]);log('Permanently deleted customer '+nm);save();render();trashM();toast('Deleted forever')}
+function purgeE(id){if(!S.entries.some(e=>e.id===id))return;if(!confirm('Permanently delete this entry? This cannot be undone.'))return;doPurge([],[id]);log('Permanently deleted an entry');save();render();trashM();toast('Deleted forever')}
+function emptyTrash(){const ps=S.parties.filter(p=>p.del).map(p=>p.id),es=S.entries.filter(e=>e.del).map(e=>e.id);if(!ps.length&&!es.length)return toast('Trash is already empty');if(!confirm('Permanently delete everything in Trash ('+ps.length+' customers, '+es.length+' entries)? This cannot be undone.'))return;doPurge(ps,es);log('Emptied trash');save();render();trashM();toast('Trash emptied')}
+async function purgeFlush(){for(const k of [...(S.purge||[])]){try{await fsReq('DELETE',FS()+'/sync/'+encodeURIComponent(k));S.purge=S.purge.filter(x=>x!==k)}catch(e){break}}save0()}
 function restP(id){const p=P(id);if(!p)return;p.del=false;delete pushed[id];log('Restored customer '+p.name);save();render();trashM();toast('Customer restored')}
 function restE(id){const e=S.entries.find(x=>x.id===id);if(!e)return;e.del=false;log('Restored entry '+fmt(e.amt));save();render();trashM();toast('Entry restored')}
 const trashN=()=>S.parties.filter(p=>p.del).length+S.entries.filter(e=>e.del&&P(e.pid)&&!P(e.pid).del).length;
@@ -318,6 +329,9 @@ function selfTest(){const bk=S,R=[],ok=(n,c)=>R.push([n,!!c]);
   E('give',400,today(),{due:lday(Date.now()+2*864e5)});ok('Due-in-7-days card lists upcoming dues',weekCard().includes('Ravi'));
   const dcsv=balCsv();ok('Balances CSV uses local date format',!/\d{4}-\d{2}-\d{2}/.test(dcsv));
   const dc=(u,id,nm)=>({name:'projects/x/databases/(default)/documents/sync/p_'+id,fields:{k:{stringValue:'p'},d:{stringValue:JSON.stringify({id,name:nm,phone:'1'})},u:{integerValue:String(u)}}});
+  {const q='pq';S.parties.push({id:q,name:'Purge Me',phone:'9111111111',created:1,del:true});S.entries.push({id:'eq1',pid:q,type:'give',kind:'',amt:5,date:today(),due:'',note:'',mode:'cash'});const n0=S.entries.length,ks=doPurge([q],[]);
+   ok('Delete forever removes the customer and all their entries',!P(q)&&S.entries.length===n0-1&&ks===2);ok('Purged records are queued for cloud deletion',S.purge.includes('p_'+q)&&S.purge.includes('e_eq1'));ok('Sync never brings a purged record back',applyDoc(dc(999,q,'Zombie'))===false&&!P(q));
+   S.entries.push({id:'eq2',pid:'p1',type:'give',kind:'',amt:7,date:today(),due:'',note:'',mode:'cash',del:true});doPurge([],['eq2']);ok('Delete forever on one entry keeps the customer',!!P('p1')&&!S.entries.some(e=>e.id==='eq2'))}
   ok('Sync: new remote record is added',applyDoc(dc(100,'p2','Remote'))===true&&S.parties.length===2);
   ok('Sync: older remote change is ignored',applyDoc(dc(50,'p2','Stale'))===false&&P('p2').name==='Remote');
   ok('Sync: newer remote change wins',applyDoc(dc(200,'p2','Newer'))===true&&P('p2').name==='Newer');
@@ -354,6 +368,7 @@ function stamp(){S.sy=S.sy||{};S.st=S.st||{};
  for(const[key,k,r]of recs()){const h=hs(r);if(S.st[key]!==h){r._u=ts();S.st[key]=h}else if(r._u==null)r._u=ts()}
  const h=JSON.stringify(shopSub());if(S.st.shop!==h){S.shop._u=(S.shop._u==null&&defShop())?0:ts();S.st.shop=h}}
 function applyDoc(d){const f=d.fields||{},g=x=>(f[x]||{}).stringValue||'',u=+((f.u||{}).integerValue||0),k=g('k'),key=decodeURIComponent(d.name.split('/').pop());let data;try{data=JSON.parse(g('d'))}catch(e){return false}
+ if((S.purge||[]).includes(key))return false;
  if(k==='meta'){const ra=+data.resetAt||0;if(ra<=(S.resetAt||0))return false;S.resetAt=ra;
   for(const kk in SK)S[SK[kk]]=(S[SK[kk]]||[]).filter(r=>{const keep=(r._u||0)>=ra;if(!keep){delete S.st[kk+'_'+r.id];delete S.sy[kk+'_'+r.id]}return keep});return true}
  if(u<(S.resetAt||0))return false;
@@ -381,7 +396,7 @@ async function syncData(manual){stamp();let ch=false;
 function afterRemote(){const t=(document.activeElement||{}).tagName||'';if(!$('#mo').hidden||/INPUT|TEXTAREA|SELECT/.test(t)){pendR=true;return}pendR=false;render()}
 function sched(){if(!ready())return;clearTimeout(ptm);ptm=setTimeout(()=>syncAll(),1500)}
 async function syncAll(manual){if(busy){clearTimeout(ptm);ptm=setTimeout(()=>syncAll(manual),2000);return}busy=true;
- try{cs('Syncing…');const rch=await syncData(manual);if(rch||pendR)afterRemote();let n=0;for(const p of S.parties){p.token=p.token||tk();
+ try{cs('Syncing…');if((S.purge||[]).length)await purgeFlush();const rch=await syncData(manual);if(rch||pendR)afterRemote();let n=0;for(const p of S.parties){p.token=p.token||tk();
   if(p.del){if(pushed[p.id]!=='x'){await fsReq('DELETE',FS()+'/pub/'+p.token);pushed[p.id]='x'}continue}
   const o=pobj(p),h=JSON.stringify(o);if(pushed[p.id]===h)continue;
   await fsReq('PATCH',FS()+'/pub/'+p.token,{fields:{d:{stringValue:JSON.stringify({...o,upd:new Date().toISOString()})}}});pushed[p.id]=h;n++}
